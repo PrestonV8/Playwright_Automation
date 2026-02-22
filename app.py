@@ -373,31 +373,257 @@ def get_run(run_id: str):
 def run_details_ui(run_id: str):
     return f"""
     <html>
-      <body style="font-family: Arial; max-width: 900px; margin: 40px auto;">
-        <h2>Run Details</h2>
-        <div><b>Run ID:</b> {run_id}</div>
-        <div><b>Status:</b> <span id="status">Loading...</span></div>
-        <pre id="logs" style="background:#f5f5f5; padding:12px; white-space:pre-wrap;"></pre>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Run {run_id}</title>
+
+        <style>
+          :root {{
+            --bg1:#0ea5e9;
+            --bg2:#8b5cf6;
+            --card: rgba(255,255,255,.10);
+            --cardBorder: rgba(255,255,255,.18);
+            --text:#e8eefc;
+            --muted: rgba(232,238,252,.75);
+            --shadow: 0 20px 60px rgba(0,0,0,.35);
+            --radius: 18px;
+            --success:#22c55e;
+            --fail:#ef4444;
+            --warn:#f59e0b;
+          }}
+
+          * {{ box-sizing:border-box; }}
+
+          body {{
+            margin:0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+            color: var(--text);
+            min-height:100vh;
+            background:
+              radial-gradient(1200px 600px at 20% 10%, rgba(255,255,255,.18), transparent 55%),
+              radial-gradient(900px 500px at 90% 30%, rgba(255,255,255,.14), transparent 55%),
+              linear-gradient(135deg, var(--bg1), var(--bg2));
+          }}
+
+          .wrap {{
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 28px 20px 60px;
+          }}
+
+          .card {{
+            background: var(--card);
+            border: 1px solid var(--cardBorder);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 18px;
+            backdrop-filter: blur(10px);
+          }}
+
+          .top {{
+            display:flex;
+            align-items:flex-start;
+            justify-content:space-between;
+            gap:14px;
+            flex-wrap:wrap;
+            margin-bottom: 14px;
+          }}
+
+          h1 {{
+            margin:0;
+            font-size: 26px;
+            letter-spacing:.2px;
+          }}
+
+          .sub {{
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 13px;
+          }}
+
+          .pill {{
+            display:inline-flex;
+            align-items:center;
+            gap:10px;
+            padding: 10px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,.20);
+            background: rgba(10,14,25,.30);
+            font-size: 13px;
+            font-weight: 800;
+          }}
+
+          .dot {{
+            width:10px;
+            height:10px;
+            border-radius:999px;
+            background: var(--warn);
+            box-shadow: 0 0 0 4px rgba(245,158,11,.18);
+          }}
+
+          .meta {{
+            display:grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 14px;
+          }}
+
+          @media (max-width: 900px) {{
+            .meta {{ grid-template-columns: 1fr; }}
+          }}
+
+          .m {{
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,.18);
+            background: rgba(10,14,25,.28);
+          }}
+
+          .m .k {{
+            font-size:12px;
+            color: var(--muted);
+            margin-bottom: 6px;
+          }}
+
+          .m .v {{
+            font-size:14px;
+            font-weight: 800;
+            word-break: break-word;
+          }}
+
+          .actions {{
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            margin-top: 14px;
+          }}
+
+          .btn {{
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,.20);
+            background: rgba(10,14,25,.30);
+            color: var(--text);
+            font-weight: 800;
+            cursor:pointer;
+          }}
+
+          .btn:hover {{ filter: brightness(1.06); }}
+
+          .log {{
+            margin-top: 14px;
+            background: rgba(10,14,25,.55);
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 16px;
+            padding: 14px;
+          }}
+
+          pre {{
+            margin:0;
+            color:#d7e2ff;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 13px;
+            line-height: 1.5;
+          }}
+
+          a {{
+            color: rgba(232,238,252,.95);
+          }}
+        </style>
+      </head>
+
+      <body>
+        <div class="wrap">
+          <div class="card">
+            <div class="top">
+              <div>
+                <h1>Run details</h1>
+                <div class="sub">Live status & logs (auto-refresh every 1 second)</div>
+              </div>
+
+              <div class="pill" id="statusPill">
+                <span class="dot" id="statusDot"></span>
+                <span id="status">Loading...</span>
+              </div>
+            </div>
+
+            <div class="meta">
+              <div class="m">
+                <div class="k">Run ID</div>
+                <div class="v">{run_id}</div>
+              </div>
+              <div class="m">
+                <div class="k">Run JSON</div>
+                <div class="v"><a href="/runs/{run_id}">/runs/{run_id}</a></div>
+              </div>
+              <div class="m">
+                <div class="k">Back</div>
+                <div class="v"><a href="/">Home</a></div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn" onclick="refreshNow()">Refresh now</button>
+              <button class="btn" onclick="copyRunId()">Copy run_id</button>
+            </div>
+
+            <div class="log">
+              <pre id="logs">Loading logs...</pre>
+            </div>
+          </div>
+        </div>
 
         <script>
-          async function refresh() {{
+          function setStatusUI(statusText) {{
+            const statusUpper = (statusText || "").toUpperCase();
+
+            let glow = "rgba(245,158,11,.18)";
+            let dotColor = getComputedStyle(document.documentElement).getPropertyValue("--warn");
+
+            if (statusUpper === "PASSED") {{
+              glow = "rgba(34,197,94,.18)";
+              dotColor = getComputedStyle(document.documentElement).getPropertyValue("--success");
+            }} else if (statusUpper === "FAILED") {{
+              glow = "rgba(239,68,68,.18)";
+              dotColor = getComputedStyle(document.documentElement).getPropertyValue("--fail");
+            }}
+
+            const dot = document.getElementById("statusDot");
+            dot.style.background = dotColor;
+            dot.style.boxShadow = "0 0 0 4px " + glow;
+
+            document.getElementById("status").textContent = statusText || "UNKNOWN";
+          }}
+
+          function copyRunId() {{
+            navigator.clipboard.writeText("{run_id}");
+          }}
+
+          async function refreshNow() {{
             const res = await fetch("/runs/{run_id}");
             if (res.status === 404) {{
-              document.getElementById("status").textContent = "Waiting for run to register...";
+              setStatusUI("Waiting to register...");
+              document.getElementById("logs").textContent =
+                "This run hasn't shown up yet. If you just clicked Run, give it a moment.";
               return;
             }}
+
             const data = await res.json();
-            document.getElementById("status").textContent = data.status;
-            document.getElementById("logs").textContent = ((data.stdout||"") + "\\n" + (data.stderr||"")).trim();
+            setStatusUI(data.status);
+
+            const out = ((data.stdout || "") + "\\n" + (data.stderr || "")).trim();
+            document.getElementById("logs").textContent = out || "(no logs yet)";
           }}
-          refresh();
-          setInterval(refresh, 1000);
+
+          refreshNow();
+          setInterval(refreshNow, 1000);
         </script>
       </body>
     </html>
     """
-
-
 
 
 from fastapi.staticfiles import StaticFiles
