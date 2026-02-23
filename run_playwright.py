@@ -1,3 +1,4 @@
+import os
 import argparse
 import subprocess
 from datetime import datetime
@@ -33,7 +34,11 @@ def main():
 
     # Pass ENV to Playwright tests (your tests can read process.env.ENV)
     # On Windows, easiest is to set it inline for this command:
-    full_cmd = f'set ENV={args.env}&& ' + " ".join(cmd_parts)
+    full_cmd = " ".join(cmd_parts)
+
+    # Create environment copy and inject ENV variable
+    env = os.environ.copy()
+    env["ENV"] = args.env
 
     print(f"\nRunning: {full_cmd}\n")
 
@@ -41,18 +46,15 @@ def main():
         full_cmd,
         shell=True,
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
 
     print(result.stdout)
     print(result.stderr)
 
-    if result.returncode == 0:
-        print(f"Tests PASSED | env={args.env} | run_id={run_id}")
-    else:
-        print(f"Tests FAILED | env={args.env} | run_id={run_id}")
-
-    print(f"Report output folder: {report_dir}\n")
+    # IMPORTANT: make CI fail when tests fail
+    raise SystemExit(result.returncode)
 
 if __name__ == "__main__":
     main()
